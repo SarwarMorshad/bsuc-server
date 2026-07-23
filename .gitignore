@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+
+# env (keep example)
+.env
+.env.*
+!.env.example
+
+# build output
+dist
+
+# prisma generated client
+/generated
+
+# logs
+npm-debug.log*
+*.log
+
+# os
+.DS_Store

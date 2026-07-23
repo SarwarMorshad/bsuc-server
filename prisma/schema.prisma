@@ -1,0 +1,80 @@
+// Prisma schema for bsuc-server
+// Docs: https://pris.ly/d/prisma-schema
+// Connection URL is configured in prisma.config.ts (reads DATABASE_URL from .env).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+enum RsvpStatus {
+  GOING
+  MAYBE
+  NOT_GOING
+}
+
+/// A community member (also used for admins via `role`).
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  program       String?
+  countryRegion String?
+  year          Int?
+  role          Role     @default(MEMBER)
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+
+  rsvps Rsvp[]
+
+  @@map("users")
+}
+
+/// A community event (Boishakh, Eid, welcome dinners, etc.).
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  location    String?
+  description String?
+  imageUrl    String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  rsvps Rsvp[]
+
+  @@map("events")
+}
+
+/// A member's RSVP to an event.
+model Rsvp {
+  id       String     @id @default(cuid())
+  status   RsvpStatus @default(GOING)
+  memberId String
+  eventId  String
+
+  member User  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  event  Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, eventId])
+  @@map("rsvps")
+}
+
+/// Editable site text blocks (key/value), managed from the admin panel.
+model Content {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+
+  @@map("content")
+}
