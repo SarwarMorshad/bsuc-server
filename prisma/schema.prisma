@@ -38,11 +38,30 @@ model User {
   role          Role     @default(MEMBER)
   /// Profile photo (Cloudinary URL once uploads are wired up).
   avatarUrl     String?
+  /// Set once the member confirms ownership of their email address.
+  emailVerified DateTime?
   createdAt     DateTime @default(now())
 
-  rsvps Rsvp[]
+  rsvps              Rsvp[]
+  verificationTokens VerificationToken[]
 
   @@map("users")
+}
+
+/// One-time email verification token. Only a hash is stored, so a database
+/// leak cannot be used to verify someone else's account.
+model VerificationToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("verification_tokens")
 }
 
 /// A community event (Boishakh, Eid, welcome dinners, etc.).
