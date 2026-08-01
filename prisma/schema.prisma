@@ -24,14 +24,19 @@ enum RsvpStatus {
 
 /// A community member (also used for admins via `role`).
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
-  passwordHash  String
+  id     String @id @default(cuid())
+  name   String
+  email  String @unique
+  passwordHash String
+
+  /// University-issued matriculation number. Unique — one account per student.
+  matriculationNumber String @unique
+
   program       String?
   countryRegion String?
   year          Int?
   role          Role     @default(MEMBER)
+  /// Profile photo (Cloudinary URL once uploads are wired up).
   avatarUrl     String?
   createdAt     DateTime @default(now())
 

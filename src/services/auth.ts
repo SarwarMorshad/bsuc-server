@@ -7,6 +7,7 @@ const publicUser = {
   id: true,
   name: true,
   email: true,
+  matriculationNumber: true,
   program: true,
   countryRegion: true,
   year: true,
@@ -19,21 +20,35 @@ export type RegisterInput = {
   name: string;
   email: string;
   password: string;
+  matriculationNumber: string;
   program?: string;
 };
 
 export async function register(input: RegisterInput) {
   const email = input.email.toLowerCase().trim();
+  const matriculationNumber = input.matriculationNumber.trim();
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ email }, { matriculationNumber }] },
+    select: { email: true },
+  });
+
   if (existing) {
-    throw new AppError(409, "An account with this email already exists", "EMAIL_TAKEN");
+    // Reported separately so the member knows which value to change.
+    throw existing.email === email
+      ? new AppError(409, "An account with this email already exists", "EMAIL_TAKEN")
+      : new AppError(
+          409,
+          "An account with this matriculation number already exists",
+          "MATRICULATION_TAKEN",
+        );
   }
 
   return prisma.user.create({
     data: {
       name: input.name.trim(),
       email,
+      matriculationNumber,
       passwordHash: await hashPassword(input.password),
       program: input.program?.trim() || null,
     },

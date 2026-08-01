@@ -12,6 +12,12 @@ export const registerSchema = z.object({
     .min(2, "Please enter your full name")
     .max(120),
   email: z.email("Please enter a valid email address"),
+  matriculationNumber: z
+    .string("Please enter your matriculation number")
+    .trim()
+    .min(4, "Please enter a valid matriculation number")
+    .max(20, "Please enter a valid matriculation number")
+    .regex(/^[A-Za-z0-9-]+$/, "Use only letters, numbers and hyphens"),
   password: z
     .string("Please choose a password")
     .min(8, "Password must be at least 8 characters")
