@@ -17,6 +17,14 @@ const schema = z.object({
     .min(32, "JWT_SECRET must be at least 32 characters"),
   JWT_EXPIRES_IN: z.string().default("7d"),
   CLIENT_ORIGIN: z.string().default("http://localhost:3000"),
+
+  // SMTP is optional: with no host configured, development falls back to an
+  // Ethereal test inbox and logs a preview link instead of sending real mail.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().default("BSUC <no-reply@bsuc-chemnitz.de>"),
 });
 
 const parsed = schema.safeParse(process.env);
