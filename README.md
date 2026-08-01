@@ -42,9 +42,22 @@ prisma/
   schema.prisma  data model (User, Event, Rsvp, Content)
 ```
 
-> **Prisma 7 note:** the runtime client requires a driver adapter
-> (`@prisma/adapter-pg` for Postgres). The shared client singleton and DB
-> connection are wired up in Phase 2, when a database is connected.
+> **Prisma 7 note:** the runtime client has no bundled query engine and needs a
+> driver adapter — `@prisma/adapter-pg` wraps the `pg` driver in
+> `src/lib/prisma.ts`.
+
+## API
+
+| Method | Endpoint             | Auth   | Purpose                     |
+| ------ | -------------------- | ------ | --------------------------- |
+| GET    | `/api/health`        | –      | Service health check        |
+| POST   | `/api/auth/register` | –      | Create an account           |
+| POST   | `/api/auth/login`    | –      | Sign in                     |
+| POST   | `/api/auth/logout`   | –      | Clear the session cookie    |
+| GET    | `/api/auth/me`       | member | Current user                |
+
+Sessions use a JWT in an `httpOnly`, `sameSite=lax` cookie. Passwords are
+hashed with bcrypt. Roles are `MEMBER` and `ADMIN` (`requireRole` middleware).
 
 ## Frontend
 

@@ -70,6 +70,31 @@ model Rsvp {
   @@map("rsvps")
 }
 
+enum JobType {
+  HIWI
+  WERKSTUDENT
+  INTERNSHIP
+  PART_TIME
+}
+
+/// A job or internship listing shown in the members-only job portal.
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  company     String
+  location    String?
+  type        JobType  @default(PART_TIME)
+  description String
+  applyUrl    String?
+  deadline    DateTime?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published, createdAt])
+  @@map("jobs")
+}
+
 /// Editable site text blocks (key/value), managed from the admin panel.
 model Content {
   id    String @id @default(cuid())

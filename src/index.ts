@@ -1,9 +1,8 @@
-import "dotenv/config";
+import { env } from "./config/env";
 import { createApp } from "./app";
 
 const app = createApp();
-const port = Number(process.env.PORT ?? 5000);
 
-app.listen(port, () => {
-  console.log(`bsuc-server listening on http://localhost:${port}`);
+app.listen(env.PORT, () => {
+  console.log(`bsuc-server listening on http://localhost:${env.PORT}`);
 });

@@ -1,25 +1,24 @@
-import express, { type Request, type Response } from "express";
+import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import { env } from "./config/env";
+import routes from "./routes";
+import { errorHandler, notFound } from "./middleware/error";
 
-/**
- * Builds the Express application. Route modules will be mounted here as the
- * API grows (auth, members, events, admin).
- */
+/** Builds the Express application with middleware, routes and error handling. */
 export function createApp() {
   const app = express();
 
-  app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? "http://localhost:3000" }));
+  // credentials: the session cookie must be sent on cross-origin requests
+  // from the Next.js client.
+  app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
   app.use(express.json());
+  app.use(cookieParser());
 
-  // Health check
-  app.get("/api/health", (_req: Request, res: Response) => {
-    res.json({ status: "ok", service: "bsuc-server", time: new Date().toISOString() });
-  });
+  app.use("/api", routes);
 
-  // TODO: mount routers here
-  // app.use("/api/auth", authRouter);
-  // app.use("/api/events", eventsRouter);
-  // app.use("/api/members", membersRouter);
+  app.use(notFound);
+  app.use(errorHandler);
 
   return app;
 }
