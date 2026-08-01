@@ -18,10 +18,16 @@ export const registerSchema = z.object({
     .min(4, "Please enter a valid matriculation number")
     .max(20, "Please enter a valid matriculation number")
     .regex(/^[A-Za-z0-9-]+$/, "Use only letters, numbers and hyphens"),
+  // Enforced server-side as well as in the UI — client validation is a
+  // convenience, not a security control.
   password: z
     .string("Please choose a password")
     .min(8, "Password must be at least 8 characters")
-    .max(200),
+    .max(200)
+    .regex(/[a-z]/, "Password must include a lowercase letter")
+    .regex(/[A-Z]/, "Password must include an uppercase letter")
+    .regex(/[0-9]/, "Password must include a number")
+    .regex(/[^A-Za-z0-9]/, "Password must include a special character"),
   program: z.string().max(160).optional(),
 });
 
