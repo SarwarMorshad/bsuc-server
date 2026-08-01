@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as authService from "../services/auth";
+import * as verificationService from "../services/verification";
 import { AUTH_COOKIE, authCookieOptions, signToken } from "../lib/jwt";
 import { AppError } from "../middleware/error";
 
@@ -36,12 +37,35 @@ export const loginSchema = z.object({
   password: z.string("Please enter your password").min(1, "Please enter your password"),
 });
 
+export const resendSchema = z.object({
+  email: z.email("Please enter a valid email address"),
+});
+
+export const verifySchema = z.object({
+  token: z.string("A verification token is required").min(16),
+});
+
+/**
+ * Creates the account and emails a verification link. No session is issued:
+ * sign-in is blocked until the address is confirmed.
+ */
 export async function register(req: Request, res: Response) {
   const user = await authService.register(req.body);
+  await verificationService.sendVerificationEmail(user);
+  res.status(201).json({ user, verificationRequired: true });
+}
 
-  const token = signToken({ sub: user.id, role: user.role });
-  res.cookie(AUTH_COOKIE, token, authCookieOptions);
-  res.status(201).json({ user });
+export async function verifyEmail(req: Request, res: Response) {
+  const { alreadyVerified } = await verificationService.verifyToken(
+    req.body.token,
+  );
+  res.json({ verified: true, alreadyVerified });
+}
+
+export async function resendVerification(req: Request, res: Response) {
+  await verificationService.resendVerification(req.body.email);
+  // Always the same response, so this cannot reveal which emails are registered.
+  res.status(202).json({ sent: true });
 }
 
 export async function login(req: Request, res: Response) {

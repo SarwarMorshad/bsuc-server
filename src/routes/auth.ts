@@ -7,6 +7,12 @@ const router = Router();
 
 router.post("/register", validateBody(auth.registerSchema), auth.register);
 router.post("/login", validateBody(auth.loginSchema), auth.login);
+router.post("/verify", validateBody(auth.verifySchema), auth.verifyEmail);
+router.post(
+  "/resend-verification",
+  validateBody(auth.resendSchema),
+  auth.resendVerification,
+);
 router.post("/logout", auth.logout);
 router.get("/me", requireAuth, auth.me);
 

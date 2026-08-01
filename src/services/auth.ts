@@ -13,6 +13,7 @@ const publicUser = {
   year: true,
   role: true,
   avatarUrl: true,
+  emailVerified: true,
   createdAt: true,
 } as const;
 
@@ -66,6 +67,16 @@ export async function login(email: string, password: string) {
   const ok = user ? await verifyPassword(password, user.passwordHash) : false;
   if (!user || !ok) {
     throw new AppError(401, "Incorrect email or password", "INVALID_CREDENTIALS");
+  }
+
+  // Checked only after the password matches, so an unverified-account response
+  // cannot be used to probe which emails are registered.
+  if (!user.emailVerified) {
+    throw new AppError(
+      403,
+      "Please confirm your email address before signing in. Check your inbox for the verification link.",
+      "EMAIL_NOT_VERIFIED",
+    );
   }
 
   const { passwordHash: _hash, ...safe } = user;
