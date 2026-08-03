@@ -26,6 +26,18 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
+/**
+ * Populates req.user when a valid session is present, but lets the request
+ * through either way — for endpoints that show more to signed-in users
+ * (for example an admin previewing an unpublished event).
+ */
+export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  const token = readToken(req);
+  const payload = token ? verifyToken(token) : null;
+  if (payload) req.user = payload;
+  next();
+}
+
 /** Rejects the request unless the authenticated user has one of the roles. */
 export function requireRole(...roles: TokenRole[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
