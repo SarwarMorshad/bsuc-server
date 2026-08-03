@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma";
 import { hashPassword, verifyPassword } from "../lib/password";
+import { destroyImage, uploadAvatar } from "../lib/cloudinary";
 import { AppError } from "../middleware/error";
 
 /** Fields safe to return — never the password hash. */
@@ -18,6 +19,7 @@ const publicUser = {
   pendingEmail: true,
   role: true,
   avatarUrl: true,
+  avatarPublicId: true,
   emailVerified: true,
   createdAt: true,
 } as const;
@@ -55,6 +57,46 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
   return prisma.user.update({
     where: { id: userId },
     data,
+    select: publicUser,
+  });
+}
+
+/** Stores a newly uploaded avatar, replacing any previous one. */
+export async function setAvatar(userId: string, file: Buffer) {
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { avatarPublicId: true },
+  });
+
+  const { url, publicId } = await uploadAvatar(file, userId);
+
+  // Only remove the old image once the new one is safely stored, and only when
+  // the ID differs — uploads reuse the same ID, so the file is overwritten.
+  if (existing?.avatarPublicId && existing.avatarPublicId !== publicId) {
+    await destroyImage(existing.avatarPublicId);
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: url, avatarPublicId: publicId },
+    select: publicUser,
+  });
+}
+
+/** Removes the member's avatar, falling back to their initials. */
+export async function removeAvatar(userId: string) {
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { avatarPublicId: true },
+  });
+
+  if (existing?.avatarPublicId) {
+    await destroyImage(existing.avatarPublicId);
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: null, avatarPublicId: null },
     select: publicUser,
   });
 }

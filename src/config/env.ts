@@ -25,6 +25,12 @@ const schema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().default("BSUC <no-reply@bsuc-chemnitz.de>"),
+
+  // Cloudinary, for profile photos. Optional: without it the upload endpoints
+  // return a clear error and the UI falls back to initials.
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

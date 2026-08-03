@@ -89,6 +89,21 @@ export async function changeEmail(req: Request, res: Response) {
   res.status(202).json({ pendingEmail: newEmail.toLowerCase().trim() });
 }
 
+export async function uploadAvatar(req: Request, res: Response) {
+  if (!req.user) throw new AppError(401, "Authentication required");
+  if (!req.file) {
+    throw new AppError(400, "Please choose an image to upload", "NO_FILE");
+  }
+  const user = await profileService.setAvatar(req.user.sub, req.file.buffer);
+  res.json({ user });
+}
+
+export async function removeAvatar(req: Request, res: Response) {
+  if (!req.user) throw new AppError(401, "Authentication required");
+  const user = await profileService.removeAvatar(req.user.sub);
+  res.json({ user });
+}
+
 export async function deleteAccount(req: Request, res: Response) {
   if (!req.user) throw new AppError(401, "Authentication required");
   await profileService.deleteAccount(req.user.sub, req.body.password);

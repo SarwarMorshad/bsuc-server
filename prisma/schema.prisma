@@ -52,8 +52,10 @@ model User {
   /// Address awaiting confirmation during an email change.
   pendingEmail String?
   role          Role     @default(MEMBER)
-  /// Profile photo (Cloudinary URL once uploads are wired up).
-  avatarUrl     String?
+  /// Profile photo, delivered from Cloudinary.
+  avatarUrl String?
+  /// Cloudinary public ID, kept so the old image can be removed on replace.
+  avatarPublicId String?
   /// Set once the member confirms ownership of their email address.
   emailVerified DateTime?
   createdAt     DateTime @default(now())
