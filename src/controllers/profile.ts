@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as profileService from "../services/profile";
+import * as verificationService from "../services/verification";
 import { passwordSchema } from "../lib/validation";
+import { AUTH_COOKIE, authCookieOptions } from "../lib/jwt";
 import { AppError } from "../middleware/error";
 
 /** Empty strings from form inputs are treated as "clear this field". */
@@ -14,6 +16,8 @@ const optionalText = (max: number) =>
     .nullable()
     .optional();
 
+const currentYear = new Date().getFullYear();
+
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(2, "Please enter your full name").max(120).optional(),
   program: optionalText(160),
@@ -25,6 +29,35 @@ export const updateProfileSchema = z.object({
     .max(12, "Year must be between 1 and 12")
     .nullable()
     .optional(),
+  phone: z
+    .string()
+    .trim()
+    .max(32)
+    .regex(/^[+0-9()\s-]*$/, "Please enter a valid phone number")
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .optional(),
+  degreeLevel: z
+    .enum(["BACHELOR", "MASTER", "PHD", "OTHER"])
+    .nullable()
+    .optional(),
+  arrivalYear: z
+    .number()
+    .int()
+    .min(1990, `Year must be between 1990 and ${currentYear + 1}`)
+    .max(currentYear + 1, `Year must be between 1990 and ${currentYear + 1}`)
+    .nullable()
+    .optional(),
+  bio: optionalText(500),
+});
+
+export const changeEmailSchema = z.object({
+  newEmail: z.email("Please enter a valid email address"),
+  password: z.string("Please enter your password").min(1),
+});
+
+export const deleteAccountSchema = z.object({
+  password: z.string("Please enter your password").min(1),
 });
 
 export const changePasswordSchema = z.object({
@@ -42,5 +75,23 @@ export async function changePassword(req: Request, res: Response) {
   if (!req.user) throw new AppError(401, "Authentication required");
   const { currentPassword, newPassword } = req.body;
   await profileService.changePassword(req.user.sub, currentPassword, newPassword);
+  res.status(204).end();
+}
+
+/** Sends a confirmation link to the new address; the change applies on click. */
+export async function changeEmail(req: Request, res: Response) {
+  if (!req.user) throw new AppError(401, "Authentication required");
+  const { newEmail, password } = req.body;
+
+  const user = await profileService.assertPassword(req.user.sub, password);
+  await verificationService.requestEmailChange(user, newEmail);
+
+  res.status(202).json({ pendingEmail: newEmail.toLowerCase().trim() });
+}
+
+export async function deleteAccount(req: Request, res: Response) {
+  if (!req.user) throw new AppError(401, "Authentication required");
+  await profileService.deleteAccount(req.user.sub, req.body.password);
+  res.clearCookie(AUTH_COOKIE, { ...authCookieOptions, maxAge: undefined });
   res.status(204).end();
 }

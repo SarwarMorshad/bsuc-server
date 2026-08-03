@@ -53,7 +53,54 @@ export async function sendVerificationEmail(user: {
   await sendMail({ to: user.email, ...mail });
 }
 
-/** Consumes a token and marks the account verified. */
+/**
+ * Starts an email change: sends a confirmation link to the *new* address. The
+ * account keeps its current email until that link is opened, so a typo or a
+ * hijacked session cannot lock the owner out.
+ */
+export async function requestEmailChange(
+  user: { id: string; name: string },
+  newEmail: string,
+) {
+  const email = newEmail.toLowerCase().trim();
+
+  const taken = await prisma.user.findUnique({ where: { email } });
+  if (taken) {
+    throw new AppError(
+      409,
+      "An account with this email already exists",
+      "EMAIL_TAKEN",
+    );
+  }
+
+  await prisma.verificationToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  await prisma.$transaction([
+    prisma.verificationToken.create({
+      data: {
+        tokenHash: hash(token),
+        userId: user.id,
+        newEmail: email,
+        expiresAt: new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000),
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: { pendingEmail: email },
+    }),
+  ]);
+
+  const url = `${env.CLIENT_ORIGIN}/verify?token=${token}`;
+  const mail = verificationEmail(user.name.split(" ")[0] || user.name, url);
+  // Sent to the new address — that is what needs proving.
+  await sendMail({ to: email, ...mail });
+}
+
+/** Consumes a token: confirms the account, or applies a pending email change. */
 export async function verifyToken(token: string) {
   const record = await prisma.verificationToken.findUnique({
     where: { tokenHash: hash(token) },
@@ -68,9 +115,40 @@ export async function verifyToken(token: string) {
     );
   }
 
+  // An email-change token: move the new address onto the account.
+  if (record.newEmail) {
+    const stillFree = await prisma.user.findUnique({
+      where: { email: record.newEmail },
+    });
+    if (stillFree) {
+      throw new AppError(
+        409,
+        "An account with this email already exists",
+        "EMAIL_TAKEN",
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.verificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+      prisma.user.update({
+        where: { id: record.userId },
+        data: {
+          email: record.newEmail,
+          pendingEmail: null,
+          emailVerified: new Date(),
+        },
+      }),
+    ]);
+
+    return { alreadyVerified: false, emailChanged: true };
+  }
+
   // Already verified — treat as success so a second click is not an error.
   if (record.user.emailVerified) {
-    return { alreadyVerified: true };
+    return { alreadyVerified: true, emailChanged: false };
   }
 
   await prisma.$transaction([
@@ -84,7 +162,7 @@ export async function verifyToken(token: string) {
     }),
   ]);
 
-  return { alreadyVerified: false };
+  return { alreadyVerified: false, emailChanged: false };
 }
 
 /**

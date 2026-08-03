@@ -11,6 +11,11 @@ const publicUser = {
   program: true,
   countryRegion: true,
   year: true,
+  phone: true,
+  degreeLevel: true,
+  arrivalYear: true,
+  bio: true,
+  pendingEmail: true,
   role: true,
   avatarUrl: true,
   emailVerified: true,
@@ -22,6 +27,10 @@ export type UpdateProfileInput = {
   program?: string | null;
   countryRegion?: string | null;
   year?: number | null;
+  phone?: string | null;
+  degreeLevel?: "BACHELOR" | "MASTER" | "PHD" | "OTHER" | null;
+  arrivalYear?: number | null;
+  bio?: string | null;
 };
 
 /**
@@ -38,12 +47,71 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
   if (input.countryRegion !== undefined)
     data.countryRegion = input.countryRegion?.trim() || null;
   if (input.year !== undefined) data.year = input.year ?? null;
+  if (input.phone !== undefined) data.phone = input.phone?.trim() || null;
+  if (input.degreeLevel !== undefined) data.degreeLevel = input.degreeLevel ?? null;
+  if (input.arrivalYear !== undefined) data.arrivalYear = input.arrivalYear ?? null;
+  if (input.bio !== undefined) data.bio = input.bio?.trim() || null;
 
   return prisma.user.update({
     where: { id: userId },
     data,
     select: publicUser,
   });
+}
+
+/**
+ * Confirms the member's password before a sensitive change, returning the
+ * fields needed to act on their account.
+ */
+export async function assertPassword(userId: string, password: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, passwordHash: true },
+  });
+
+  if (!user) {
+    throw new AppError(404, "User not found", "USER_NOT_FOUND");
+  }
+
+  if (!(await verifyPassword(password, user.passwordHash))) {
+    throw new AppError(400, "Your password is not correct", "INVALID_PASSWORD");
+  }
+
+  return { id: user.id, name: user.name };
+}
+
+/**
+ * Permanently deletes the member's account. Requires the password, so a
+ * hijacked session alone cannot destroy someone's data. Verification tokens
+ * and RSVPs are removed by the cascade on their foreign keys.
+ */
+export async function deleteAccount(userId: string, password: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true, role: true },
+  });
+
+  if (!user) {
+    throw new AppError(404, "User not found", "USER_NOT_FOUND");
+  }
+
+  if (!(await verifyPassword(password, user.passwordHash))) {
+    throw new AppError(400, "Your password is not correct", "INVALID_PASSWORD");
+  }
+
+  // Guard against removing the last administrator and locking everyone out.
+  if (user.role === "ADMIN") {
+    const admins = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (admins <= 1) {
+      throw new AppError(
+        409,
+        "You are the only administrator. Make someone else an admin before deleting your account.",
+        "LAST_ADMIN",
+      );
+    }
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
 }
 
 /** Changes the password after confirming the current one. */

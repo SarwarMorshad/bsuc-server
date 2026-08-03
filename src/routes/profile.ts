@@ -14,5 +14,7 @@ router.post(
   validateBody(profile.changePasswordSchema),
   profile.changePassword,
 );
+router.post("/email", validateBody(profile.changeEmailSchema), profile.changeEmail);
+router.delete("/", validateBody(profile.deleteAccountSchema), profile.deleteAccount);
 
 export default router;
