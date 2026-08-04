@@ -2,7 +2,9 @@ import { Router } from "express";
 import * as events from "../controllers/events";
 import { validateBody } from "../middleware/validate";
 import { optionalAuth, requireAuth, requireRole } from "../middleware/auth";
-import { handleUploadErrors, uploadImage } from "../middleware/upload";
+import { handleUploadErrors, singleImage } from "../middleware/upload";
+
+const uploadEventPhoto = singleImage("image");
 
 const router = Router();
 
@@ -24,7 +26,7 @@ router.post(
   requireAuth,
   requireRole("ADMIN"),
   (req, res, next) =>
-    uploadImage(req, res, (err) => {
+    uploadEventPhoto(req, res, (err) => {
       if (err) {
         try {
           handleUploadErrors(err);

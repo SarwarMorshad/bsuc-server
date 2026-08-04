@@ -9,17 +9,21 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
  * nothing is written to the server's disk. The type is checked here, but the
  * limits are enforced again by Cloudinary itself.
  */
-export const uploadImage = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_BYTES, files: 1 },
-  fileFilter: (_req, file, cb) => {
-    if (!ALLOWED.includes(file.mimetype)) {
-      cb(new AppError(400, "Please upload a JPEG, PNG or WebP image", "BAD_IMAGE_TYPE"));
-      return;
-    }
-    cb(null, true);
-  },
-}).single("avatar");
+export const singleImage = (field: string) =>
+  multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_BYTES, files: 1 },
+    fileFilter: (_req, file, cb) => {
+      if (!ALLOWED.includes(file.mimetype)) {
+        cb(new AppError(400, "Please upload a JPEG, PNG or WebP image", "BAD_IMAGE_TYPE"));
+        return;
+      }
+      cb(null, true);
+    },
+  }).single(field);
+
+/** Profile photo upload — the field name the account form already sends. */
+export const uploadImage = singleImage("avatar");
 
 /** Turns multer's own errors into the API's standard error shape. */
 export function handleUploadErrors(err: unknown): never {
