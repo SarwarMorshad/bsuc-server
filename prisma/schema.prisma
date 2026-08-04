@@ -125,21 +125,86 @@ enum JobType {
   PART_TIME
 }
 
-/// A job or internship listing shown in the members-only job portal.
+/// Nothing reaches members until an admin approves it.
+enum JobStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PayUnit {
+  HOUR
+  MONTH
+}
+
+/// How much German the role needs. ENGLISH_OK means German is not required.
+enum GermanLevel {
+  ENGLISH_OK
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+/// A job listing for the members-only portal.
+///
+/// Adverts are written in German, following the usual Stellenanzeige
+/// structure (Über uns / Aufgaben / Profil / Wir bieten), so the body fields
+/// are single-language on purpose.
 model Job {
-  id          String   @id @default(cuid())
-  title       String
-  company     String
-  location    String?
-  type        JobType  @default(PART_TIME)
-  description String
+  id String @id @default(cuid())
+
+  // --- Position ---
+  /// Must carry the (m/w/d) marker; the AGG forbids gendered adverts.
+  title          String
+  company        String
+  companyWebsite String?
+  location       String?
+  remote         Boolean @default(false)
+  type           JobType @default(PART_TIME)
+  /// null means "ab sofort".
+  startDate      DateTime?
+  /// null means unbefristet.
+  until          DateTime?
+  hoursPerWeek   Int?
+
+  /// Pay in cents to keep the arithmetic exact — 13.90 EUR/h is 1390.
+  payCents Int?
+  payUnit  PayUnit @default(HOUR)
+  /// For the cases a number cannot express, e.g. an unpaid mandatory internship.
+  payNote  String?
+
+  // --- The advert itself, in German ---
+  aboutCompany String
+  tasks        String
+  profile      String
+  offer        String?
+  germanLevel  GermanLevel?
+
+  // --- How to apply ---
+  contactName String?
+  applyEmail  String?
   applyUrl    String?
   deadline    DateTime?
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  @@index([published, createdAt])
+  // --- Who submitted it. Never shown publicly: this is how the committee
+  //     replies, and how it judges whether the employer is real. ---
+  submitterName  String
+  submitterEmail String
+  submitterPhone String?
+
+  // --- Moderation ---
+  status          JobStatus @default(PENDING)
+  rejectionReason String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
   @@map("jobs")
 }
 

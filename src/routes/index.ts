@@ -3,6 +3,7 @@ import authRoutes from "./auth";
 import profileRoutes from "./profile";
 import eventRoutes from "./events";
 import adminRoutes from "./admin";
+import jobRoutes from "./jobs";
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.get("/health", (_req, res) => {
 router.use("/auth", authRoutes);
 router.use("/profile", profileRoutes);
 router.use("/events", eventRoutes);
+router.use("/jobs", jobRoutes);
 router.use("/admin", adminRoutes);
 
 export default router;

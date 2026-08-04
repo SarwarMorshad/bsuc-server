@@ -29,7 +29,8 @@ export async function getStats() {
     eventsPublished,
     eventsUpcoming,
     jobsTotal,
-    jobsPublished,
+    jobsApproved,
+    jobsPending,
     recentMembers,
   ] = await Promise.all([
     prisma.user.count(),
@@ -39,7 +40,8 @@ export async function getStats() {
     prisma.event.count({ where: { published: true } }),
     prisma.event.count({ where: { published: true, date: { gte: now } } }),
     prisma.job.count(),
-    prisma.job.count({ where: { published: true } }),
+    prisma.job.count({ where: { status: "APPROVED" } }),
+    prisma.job.count({ where: { status: "PENDING" } }),
     prisma.user.findMany({
       take: 5,
       orderBy: { createdAt: "desc" },
@@ -55,7 +57,8 @@ export async function getStats() {
       drafts: eventsTotal - eventsPublished,
       upcoming: eventsUpcoming,
     },
-    jobs: { total: jobsTotal, published: jobsPublished },
+    // pending is the one an admin has to act on.
+    jobs: { total: jobsTotal, approved: jobsApproved, pending: jobsPending },
     recentMembers,
   };
 }
