@@ -12,6 +12,12 @@ export const AUTH_COOKIE = "bsuc_token";
 export type TokenPayload = {
   sub: string;
   role: "MEMBER" | "ADMIN";
+  /**
+   * The user's tokenVersion when this was signed. requireAuth rejects the
+   * token once the stored version moves past it, which is what makes logging
+   * out and changing a password take effect everywhere at once.
+   */
+  ver: number;
 };
 
 /**

@@ -3,7 +3,12 @@ import { z } from "zod";
 import * as profileService from "../services/profile";
 import * as verificationService from "../services/verification";
 import { passwordSchema } from "../lib/validation";
-import { AUTH_COOKIE, clearCookieOptions } from "../lib/jwt";
+import {
+  AUTH_COOKIE,
+  authCookieOptions,
+  clearCookieOptions,
+  signToken,
+} from "../lib/jwt";
 import { AppError } from "../middleware/error";
 
 /** Empty strings from form inputs are treated as "clear this field". */
@@ -74,7 +79,22 @@ export async function updateProfile(req: Request, res: Response) {
 export async function changePassword(req: Request, res: Response) {
   if (!req.user) throw new AppError(401, "Authentication required");
   const { currentPassword, newPassword } = req.body;
-  await profileService.changePassword(req.user.sub, currentPassword, newPassword);
+  const user = await profileService.changePassword(
+    req.user.sub,
+    currentPassword,
+    newPassword,
+  );
+
+  // Every other session is now invalid. Hand this browser a fresh token so
+  // the person who just changed their password is not signed out too — as a
+  // non-persistent cookie, since we cannot know whether the old session had
+  // "remember me" ticked.
+  const token = signToken(
+    { sub: user.id, role: user.role, ver: user.tokenVersion },
+    { remember: false },
+  );
+  res.cookie(AUTH_COOKIE, token, authCookieOptions({ remember: false }));
+
   res.status(204).end();
 }
 

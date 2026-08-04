@@ -189,8 +189,27 @@ export async function changePassword(
     );
   }
 
+  // Bumping the version drops every session signed with the old password —
+  // the point of changing it when you suspect someone else has access.
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      tokenVersion: { increment: 1 },
+    },
+    select: { id: true, role: true, tokenVersion: true },
+  });
+
+  return updated;
+}
+
+/**
+ * Invalidates every token issued for this user. Used on logout, so signing
+ * out is not merely local to one browser.
+ */
+export async function revokeSessions(userId: string) {
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: await hashPassword(newPassword) },
+    data: { tokenVersion: { increment: 1 } },
   });
 }

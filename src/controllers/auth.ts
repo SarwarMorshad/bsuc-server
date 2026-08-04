@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import * as authService from "../services/auth";
 import * as verificationService from "../services/verification";
+import * as profileService from "../services/profile";
 import {
   AUTH_COOKIE,
   authCookieOptions,
@@ -71,15 +72,23 @@ export async function resendVerification(req: Request, res: Response) {
 
 export async function login(req: Request, res: Response) {
   const { email, password, remember = false } = req.body;
-  const user = await authService.login(email, password);
+  const { tokenVersion, ...user } = await authService.login(email, password);
 
   // "Remember me" is what decides whether this session outlives the browser.
-  const token = signToken({ sub: user.id, role: user.role }, { remember });
+  const token = signToken(
+    { sub: user.id, role: user.role, ver: tokenVersion },
+    { remember },
+  );
   res.cookie(AUTH_COOKIE, token, authCookieOptions({ remember }));
   res.json({ user });
 }
 
-export async function logout(_req: Request, res: Response) {
+export async function logout(req: Request, res: Response) {
+  // Signing out ends the session everywhere, not only in this browser. The
+  // route uses optionalAuth, so an expired or already-revoked token still
+  // gets its cookie cleared rather than an error.
+  if (req.user) await profileService.revokeSessions(req.user.sub);
+
   res.clearCookie(AUTH_COOKIE, clearCookieOptions);
   res.status(204).end();
 }

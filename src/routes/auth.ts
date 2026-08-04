@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as auth from "../controllers/auth";
 import { validateBody } from "../middleware/validate";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, optionalAuth } from "../middleware/auth";
 
 const router = Router();
 
@@ -13,7 +13,7 @@ router.post(
   validateBody(auth.resendSchema),
   auth.resendVerification,
 );
-router.post("/logout", auth.logout);
+router.post("/logout", optionalAuth, auth.logout);
 router.get("/me", requireAuth, auth.me);
 
 export default router;

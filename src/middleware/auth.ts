@@ -32,11 +32,15 @@ async function resolveSession(req: Request): Promise<TokenPayload | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true },
+    select: { id: true, role: true, tokenVersion: true },
   });
   if (!user) return null;
 
-  return { sub: user.id, role: user.role };
+  // Signed before the last logout or password change, so it is no longer
+  // valid anywhere — not just in the browser that signed out.
+  if (payload.ver !== user.tokenVersion) return null;
+
+  return { sub: user.id, role: user.role, ver: user.tokenVersion };
 }
 
 /** Rejects the request unless it carries a valid session token. */

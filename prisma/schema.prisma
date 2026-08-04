@@ -52,6 +52,12 @@ model User {
   /// Address awaiting confirmation during an email change.
   pendingEmail String?
   role          Role     @default(MEMBER)
+
+  /// Bumped to invalidate every token already issued for this user — on
+  /// logout, and whenever the password changes. Tokens carry the version they
+  /// were signed with, so an old one stops being accepted immediately instead
+  /// of lingering until it expires.
+  tokenVersion  Int      @default(0)
   /// Profile photo, delivered from Cloudinary.
   avatarUrl String?
   /// Cloudinary public ID, kept so the old image can be removed on replace.
