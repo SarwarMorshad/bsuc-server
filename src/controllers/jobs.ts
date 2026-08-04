@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as jobsService from "../services/jobs";
+import * as jobMail from "../services/job-mail";
 import { AppError } from "../middleware/error";
 
 /** Express 5 types params as string | string[]; routes here always give one. */
@@ -149,6 +150,16 @@ export async function listAll(_req: Request, res: Response) {
 
 export async function submit(req: Request, res: Response) {
   const job = await jobsService.submit(req.body);
+
+  // Mail is best-effort: the listing is already stored, so a mail server
+  // problem must not make a successful submission look like a failure.
+  void jobMail
+    .notifyAdminsOfSubmission(job)
+    .catch((err) => console.error("[jobs] admin notification failed", err));
+  void jobMail
+    .confirmSubmission(job)
+    .catch((err) => console.error("[jobs] submitter confirmation failed", err));
+
   // Only an acknowledgement: the submitter gets no listing back, because it
   // is not public yet.
   res.status(201).json({ id: job.id, status: job.status });
@@ -169,6 +180,12 @@ export async function review(req: Request, res: Response) {
     rejectionReason: req.body.rejectionReason,
     reviewerId,
   });
+
+  // The employer is told either way, and a rejection carries its reason.
+  void jobMail
+    .notifyDecision({ ...job, status: req.body.status })
+    .catch((err) => console.error("[jobs] decision notification failed", err));
+
   res.json({ job });
 }
 
