@@ -40,6 +40,15 @@ router.post(
   events.uploadImage,
 );
 
+// Also above /:id, so "image" is not read as an event id.
+router.delete(
+  "/image",
+  requireAuth,
+  requireRole("ADMIN"),
+  validateBody(events.discardImageSchema),
+  events.discardImage,
+);
+
 router.patch(
   "/:id",
   requireAuth,

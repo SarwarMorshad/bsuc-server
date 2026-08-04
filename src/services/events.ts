@@ -86,6 +86,12 @@ export async function update(id: string, input: Partial<EventInput>) {
   return prisma.event.update({ where: { id }, data });
 }
 
+/** True when some event still points at this Cloudinary image. */
+export async function isImageInUse(publicId: string) {
+  const count = await prisma.event.count({ where: { imagePublicId: publicId } });
+  return count > 0;
+}
+
 export async function remove(id: string) {
   const existing = await getById(id, { includeDrafts: true });
 

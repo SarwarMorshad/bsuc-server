@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as eventsService from "../services/events";
-import { uploadEventImage } from "../lib/cloudinary";
+import { destroyImage, uploadEventImage } from "../lib/cloudinary";
 import { AppError } from "../middleware/error";
 
 /** Express 5 types params as string | string[]; routes here always give one. */
@@ -68,4 +68,27 @@ export async function uploadImage(req: Request, res: Response) {
   }
   const { url, publicId } = await uploadEventImage(req.file.buffer);
   res.status(201).json({ imageUrl: url, imagePublicId: publicId });
+}
+
+export const discardImageSchema = z.object({
+  publicId: z.string().trim().min(1).max(200),
+});
+
+/**
+ * Removes an uploaded photo that was never attached to an event — the admin
+ * cancelled, or saving failed. Refuses anything outside the events folder, and
+ * anything an event still points at, so this cannot delete a live image.
+ */
+export async function discardImage(req: Request, res: Response) {
+  const { publicId } = req.body as { publicId: string };
+
+  if (!publicId.startsWith("bsuc/events/")) {
+    throw new AppError(400, "That image cannot be removed", "BAD_PUBLIC_ID");
+  }
+  if (await eventsService.isImageInUse(publicId)) {
+    throw new AppError(409, "That image is in use by an event", "IMAGE_IN_USE");
+  }
+
+  await destroyImage(publicId);
+  res.status(204).end();
 }
