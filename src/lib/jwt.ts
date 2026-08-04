@@ -14,9 +14,20 @@ export type TokenPayload = {
   role: "MEMBER" | "ADMIN";
 };
 
-export function signToken(payload: TokenPayload): string {
+/**
+ * How long a session lasts when "remember me" is left unticked. The cookie is
+ * dropped when the browser closes, but the token has to expire too — a
+ * non-persistent cookie only constrains the browser, and a copied value would
+ * otherwise stay valid for the full week.
+ */
+export const SHORT_SESSION_SECONDS = 12 * 60 * 60;
+
+export function signToken(
+  payload: TokenPayload,
+  { remember = true }: { remember?: boolean } = {},
+): string {
   return jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN,
+    expiresIn: remember ? env.JWT_EXPIRES_IN : SHORT_SESSION_SECONDS,
   } as SignOptions);
 }
 
@@ -34,10 +45,23 @@ export function verifyToken(token: string): TokenPayload | null {
  * JavaScript (XSS), sameSite=lax blocks the common CSRF cases, and secure is
  * enabled in production where the site is served over HTTPS.
  */
-export const authCookieOptions = {
+const baseCookieOptions = {
   httpOnly: true,
   secure: isProduction,
   sameSite: "lax" as const,
   path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
+
+/**
+ * Without "remember me" no maxAge is set, which makes this a non-persistent
+ * cookie: the browser discards it on close rather than writing it to disk.
+ * OWASP recommends that as the default for session management.
+ */
+export function authCookieOptions({ remember }: { remember: boolean }) {
+  return remember
+    ? { ...baseCookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }
+    : baseCookieOptions;
+}
+
+/** Matching attributes for clearing the cookie; maxAge must be absent here. */
+export const clearCookieOptions = baseCookieOptions;

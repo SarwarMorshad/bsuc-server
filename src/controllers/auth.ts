@@ -2,7 +2,12 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import * as authService from "../services/auth";
 import * as verificationService from "../services/verification";
-import { AUTH_COOKIE, authCookieOptions, signToken } from "../lib/jwt";
+import {
+  AUTH_COOKIE,
+  authCookieOptions,
+  clearCookieOptions,
+  signToken,
+} from "../lib/jwt";
 import { passwordSchema } from "../lib/validation";
 import { AppError } from "../middleware/error";
 
@@ -29,6 +34,8 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.email("Please enter a valid email address"),
   password: z.string("Please enter your password").min(1, "Please enter your password"),
+  /** Keeps the session alive after the browser closes. Off by default. */
+  remember: z.boolean().optional(),
 });
 
 export const resendSchema = z.object({
@@ -63,16 +70,17 @@ export async function resendVerification(req: Request, res: Response) {
 }
 
 export async function login(req: Request, res: Response) {
-  const { email, password } = req.body;
+  const { email, password, remember = false } = req.body;
   const user = await authService.login(email, password);
 
-  const token = signToken({ sub: user.id, role: user.role });
-  res.cookie(AUTH_COOKIE, token, authCookieOptions);
+  // "Remember me" is what decides whether this session outlives the browser.
+  const token = signToken({ sub: user.id, role: user.role }, { remember });
+  res.cookie(AUTH_COOKIE, token, authCookieOptions({ remember }));
   res.json({ user });
 }
 
 export async function logout(_req: Request, res: Response) {
-  res.clearCookie(AUTH_COOKIE, { ...authCookieOptions, maxAge: undefined });
+  res.clearCookie(AUTH_COOKIE, clearCookieOptions);
   res.status(204).end();
 }
 

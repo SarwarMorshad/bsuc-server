@@ -3,7 +3,7 @@ import { z } from "zod";
 import * as profileService from "../services/profile";
 import * as verificationService from "../services/verification";
 import { passwordSchema } from "../lib/validation";
-import { AUTH_COOKIE, authCookieOptions } from "../lib/jwt";
+import { AUTH_COOKIE, clearCookieOptions } from "../lib/jwt";
 import { AppError } from "../middleware/error";
 
 /** Empty strings from form inputs are treated as "clear this field". */
@@ -107,6 +107,6 @@ export async function removeAvatar(req: Request, res: Response) {
 export async function deleteAccount(req: Request, res: Response) {
   if (!req.user) throw new AppError(401, "Authentication required");
   await profileService.deleteAccount(req.user.sub, req.body.password);
-  res.clearCookie(AUTH_COOKIE, { ...authCookieOptions, maxAge: undefined });
+  res.clearCookie(AUTH_COOKIE, clearCookieOptions);
   res.status(204).end();
 }
