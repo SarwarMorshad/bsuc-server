@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { AUTH_COOKIE, verifyToken } from "../lib/jwt";
+import { AUTH_COOKIE, verifyToken, type TokenPayload } from "../lib/jwt";
+import { prisma } from "../lib/prisma";
 import { AppError } from "./error";
 
 /** Reads the session token from the cookie, falling back to a Bearer header. */
@@ -13,16 +14,44 @@ function readToken(req: Request): string | undefined {
   return undefined;
 }
 
-/** Rejects the request unless it carries a valid session token. */
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+/**
+ * Resolves the session against the database rather than trusting the token's
+ * own copy of the role.
+ *
+ * The role is baked into the token at sign-in, so it goes stale the moment
+ * someone is promoted or demoted — a demoted admin would keep full access
+ * until their token expired, up to a week later. Reading it here also drops
+ * sessions belonging to accounts deleted since the token was issued.
+ *
+ * Costs one indexed lookup per authenticated request.
+ */
+async function resolveSession(req: Request): Promise<TokenPayload | null> {
   const token = readToken(req);
   const payload = token ? verifyToken(token) : null;
+  if (!payload) return null;
 
-  if (!payload) {
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: { id: true, role: true },
+  });
+  if (!user) return null;
+
+  return { sub: user.id, role: user.role };
+}
+
+/** Rejects the request unless it carries a valid session token. */
+export async function requireAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  const user = await resolveSession(req);
+
+  if (!user) {
     throw new AppError(401, "Authentication required", "UNAUTHENTICATED");
   }
 
-  req.user = payload;
+  req.user = user;
   next();
 }
 
@@ -31,10 +60,13 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
  * through either way — for endpoints that show more to signed-in users
  * (for example an admin previewing an unpublished event).
  */
-export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
-  const token = readToken(req);
-  const payload = token ? verifyToken(token) : null;
-  if (payload) req.user = payload;
+export async function optionalAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  const user = await resolveSession(req);
+  if (user) req.user = user;
   next();
 }
 

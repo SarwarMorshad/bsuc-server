@@ -4,6 +4,11 @@ import { env, isProduction } from "../config/env";
 /** Name of the httpOnly cookie carrying the session token. */
 export const AUTH_COOKIE = "bsuc_token";
 
+/**
+ * `sub` identifies the user. `role` is a snapshot from sign-in time and is NOT
+ * authoritative — requireAuth re-reads the current role from the database on
+ * every request, so never authorise on the token's copy.
+ */
 export type TokenPayload = {
   sub: string;
   role: "MEMBER" | "ADMIN";
