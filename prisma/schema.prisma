@@ -124,11 +124,26 @@ model Rsvp {
   @@map("rsvps")
 }
 
+/// The kinds of position a German university job board carries. Values are
+/// only ever added — an existing listing must keep meaning what it meant.
 enum JobType {
-  HIWI
+  // While studying
+  HIWI // Studentische / Wissenschaftliche Hilfskraft
   WERKSTUDENT
-  INTERNSHIP
-  PART_TIME
+  INTERNSHIP // Praktikum
+  MINIJOB // geringfügige Beschäftigung
+  PART_TIME // Nebenjob / Teilzeit
+  THESIS // Abschlussarbeit im Unternehmen
+  DUAL_STUDY // Duales Studium
+
+  // After graduating
+  ENTRY_LEVEL // Berufseinstieg
+  TRAINEE
+  FULL_TIME
+  PHD // Promotion
+
+  // Other arrangements
+  FREELANCE // Freiberuflich / Werkvertrag
 }
 
 /// Nothing reaches members until an admin approves it.

@@ -4,6 +4,12 @@ import * as jobsService from "../services/jobs";
 import * as jobMail from "../services/job-mail";
 import { AppError } from "../middleware/error";
 
+/** Kept in step with the JobType enum in the schema. */
+const JOB_TYPES = [
+  "HIWI", "WERKSTUDENT", "INTERNSHIP", "MINIJOB", "PART_TIME", "THESIS",
+  "DUAL_STUDY", "ENTRY_LEVEL", "TRAINEE", "FULL_TIME", "PHD", "FREELANCE",
+] as const;
+
 /** Express 5 types params as string | string[]; routes here always give one. */
 const idOf = (req: Request) => String(req.params.id);
 
@@ -19,6 +25,13 @@ const MIN_WAGE_CENTS = 1390;
  * a Bachelor's. The lower rate is the floor we check against.
  */
 const HIWI_MIN_CENTS = 1398;
+
+/**
+ * Types that may carry no figure. A mandatory internship is exempt from the
+ * minimum wage outright, and a thesis written at a company is usually unpaid
+ * or covered by a small stipend — both explain themselves in payNote.
+ */
+const PAY_EXEMPT: readonly string[] = ["INTERNSHIP", "THESIS"];
 
 /** The AGG forbids gendered adverts; (m/w/d) is how German ads signal that. */
 const GENDER_MARKER = /\((?:m\s*\/\s*w\s*\/\s*d|w\s*\/\s*m\s*\/\s*d|d\s*\/\s*m\s*\/\s*w|m\s*\/\s*f\s*\/\s*d|a|all\s*genders)\)/i;
@@ -45,7 +58,7 @@ export const submitJobSchema = z
     companyWebsite: z.url("Bitte eine gültige Web-Adresse angeben").nullable().optional(),
     location: optionalText(160),
     remote: z.boolean().optional(),
-    type: z.enum(["HIWI", "WERKSTUDENT", "INTERNSHIP", "PART_TIME"]),
+    type: z.enum(JOB_TYPES),
     startDate: z.coerce.date().nullable().optional(),
     until: z.coerce.date().nullable().optional(),
     hoursPerWeek: z.coerce.number().int().min(1).max(40).nullable().optional(),
@@ -76,9 +89,7 @@ export const submitJobSchema = z
     error: "Bitte angeben, wie man sich bewirbt — E-Mail oder Link",
     path: ["applyEmail"],
   })
-  .refine((v) => v.payCents != null || v.type === "INTERNSHIP", {
-    // Pay is mandatory. Mandatory internships are exempt from the minimum
-    // wage entirely, so those may explain themselves in payNote instead.
+  .refine((v) => v.payCents != null || PAY_EXEMPT.includes(v.type), {
     error: "Bitte die Vergütung angeben",
     path: ["payCents"],
   })
@@ -87,8 +98,8 @@ export const submitJobSchema = z
 
     // A monthly figure cannot be checked without knowing the hours, so only
     // hourly pay is compared against the statutory floor.
+    if (PAY_EXEMPT.includes(v.type)) return;
     const floor = v.type === "HIWI" ? HIWI_MIN_CENTS : MIN_WAGE_CENTS;
-    if (v.type === "INTERNSHIP") return;
 
     if (v.payCents < floor) {
       ctx.addIssue({
@@ -109,7 +120,7 @@ export const updateJobSchema = z.object({
   companyWebsite: z.url().nullable().optional(),
   location: optionalText(160),
   remote: z.boolean().optional(),
-  type: z.enum(["HIWI", "WERKSTUDENT", "INTERNSHIP", "PART_TIME"]).optional(),
+  type: z.enum(JOB_TYPES).optional(),
   startDate: z.coerce.date().nullable().optional(),
   until: z.coerce.date().nullable().optional(),
   hoursPerWeek: z.coerce.number().int().min(1).max(40).nullable().optional(),
