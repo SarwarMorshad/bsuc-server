@@ -151,12 +151,31 @@ export async function list(req: Request, res: Response) {
   res.json({ jobs: await jobsService.listForMembers({ type }) });
 }
 
-export async function listAll(_req: Request, res: Response) {
-  const [jobs, counts] = await Promise.all([
-    jobsService.listAll(),
+export const adminListQuerySchema = z.object({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+  q: z.string().trim().max(120).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export async function listAll(req: Request, res: Response) {
+  const parsed = adminListQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    throw new AppError(400, "Invalid filter", "INVALID_QUERY");
+  }
+
+  // Counts cover the whole board, not the current page, so the tabs keep
+  // showing the real totals while a search narrows the list below them.
+  const [result, counts] = await Promise.all([
+    jobsService.listAll(parsed.data),
     jobsService.counts(),
   ]);
-  res.json({ jobs, counts });
+
+  res.json({ ...result, counts });
+}
+
+export async function getOne(req: Request, res: Response) {
+  res.json({ job: await jobsService.getForAdmin(idOf(req)) });
 }
 
 export async function submit(req: Request, res: Response) {

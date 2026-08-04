@@ -30,6 +30,8 @@ router.get("/", requireAuth, jobs.list);
 
 // Admin: every listing including submitter details, plus moderation.
 router.get("/all", requireAuth, requireRole("ADMIN"), jobs.listAll);
+// Full record including the advert bodies, for the details modal.
+router.get("/:id", requireAuth, requireRole("ADMIN"), jobs.getOne);
 router.patch(
   "/:id/review",
   requireAuth,

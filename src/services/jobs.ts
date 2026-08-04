@@ -50,9 +50,86 @@ export async function listForMembers({ type }: { type?: string } = {}) {
   });
 }
 
-/** Everything, including submitter details — admin only. */
-export async function listAll() {
-  return prisma.job.findMany({ orderBy: [{ createdAt: "desc" }] });
+/**
+ * Columns the moderation list needs. The four advert bodies are deliberately
+ * absent — they allow 4000 characters each, and sending them for every row
+ * was most of the payload. They are fetched per listing when one is opened.
+ */
+const adminListSelect = {
+  id: true,
+  title: true,
+  company: true,
+  companyWebsite: true,
+  location: true,
+  remote: true,
+  type: true,
+  hoursPerWeek: true,
+  payCents: true,
+  payUnit: true,
+  payNote: true,
+  germanLevel: true,
+  deadline: true,
+  status: true,
+  rejectionReason: true,
+  reviewedAt: true,
+  submitterName: true,
+  submitterEmail: true,
+  submitterPhone: true,
+  createdAt: true,
+} satisfies Prisma.JobSelect;
+
+export type AdminJobFilter = {
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  /** Matches title, company or submitter. */
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+/**
+ * One page of listings for the moderation queue, filtered and searched in the
+ * database rather than the browser.
+ */
+export async function listAll({
+  status,
+  q,
+  page = 1,
+  pageSize = 25,
+}: AdminJobFilter = {}) {
+  const search = q?.trim();
+  const where: Prisma.JobWhereInput = {
+    ...(status ? { status } : {}),
+    ...(search
+      ? {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { company: { contains: search, mode: "insensitive" } },
+            { submitterName: { contains: search, mode: "insensitive" } },
+            { submitterEmail: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const [jobs, total] = await Promise.all([
+    prisma.job.findMany({
+      where,
+      select: adminListSelect,
+      orderBy: [{ createdAt: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.job.count({ where }),
+  ]);
+
+  return { jobs, total, page, pageSize };
+}
+
+/** A single listing in full, advert bodies included — for the details modal. */
+export async function getForAdmin(id: string) {
+  const job = await prisma.job.findUnique({ where: { id } });
+  if (!job) throw new AppError(404, "Job not found", "NOT_FOUND");
+  return job;
 }
 
 export async function getById(id: string) {
