@@ -94,6 +94,8 @@ model Event {
   location    String?
   description String?
   imageUrl    String?
+  /// Cloudinary public ID, kept so the old image can be removed on replace.
+  imagePublicId String?
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
 

@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma";
+import { destroyImage } from "../lib/cloudinary";
 import { AppError } from "../middleware/error";
 
 export type EventInput = {
@@ -7,6 +8,7 @@ export type EventInput = {
   location?: string | null;
   description?: string | null;
   imageUrl?: string | null;
+  imagePublicId?: string | null;
   published?: boolean;
 };
 
@@ -50,13 +52,14 @@ export async function create(input: EventInput) {
       location: input.location?.trim() || null,
       description: input.description?.trim() || null,
       imageUrl: input.imageUrl?.trim() || null,
+      imagePublicId: input.imagePublicId || null,
       published: input.published ?? false,
     },
   });
 }
 
 export async function update(id: string, input: Partial<EventInput>) {
-  await getById(id, { includeDrafts: true });
+  const existing = await getById(id, { includeDrafts: true });
 
   const data: Partial<EventInput> = {};
   if (input.title !== undefined) data.title = input.title.trim();
@@ -64,14 +67,32 @@ export async function update(id: string, input: Partial<EventInput>) {
   if (input.location !== undefined) data.location = input.location?.trim() || null;
   if (input.description !== undefined)
     data.description = input.description?.trim() || null;
-  if (input.imageUrl !== undefined) data.imageUrl = input.imageUrl?.trim() || null;
   if (input.published !== undefined) data.published = input.published;
+
+  if (input.imageUrl !== undefined) {
+    data.imageUrl = input.imageUrl?.trim() || null;
+    data.imagePublicId = input.imagePublicId || null;
+
+    // Drop the previous file once the replacement is recorded, so Cloudinary
+    // does not accumulate orphans.
+    if (
+      existing.imagePublicId &&
+      existing.imagePublicId !== data.imagePublicId
+    ) {
+      await destroyImage(existing.imagePublicId);
+    }
+  }
 
   return prisma.event.update({ where: { id }, data });
 }
 
 export async function remove(id: string) {
-  await getById(id, { includeDrafts: true });
+  const existing = await getById(id, { includeDrafts: true });
+
+  if (existing.imagePublicId) {
+    await destroyImage(existing.imagePublicId);
+  }
+
   // RSVPs are removed by the cascade on their foreign key.
   await prisma.event.delete({ where: { id } });
 }

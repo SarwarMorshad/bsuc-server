@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as events from "../controllers/events";
 import { validateBody } from "../middleware/validate";
 import { optionalAuth, requireAuth, requireRole } from "../middleware/auth";
+import { handleUploadErrors, uploadImage } from "../middleware/upload";
 
 const router = Router();
 
@@ -17,6 +18,26 @@ router.post(
   validateBody(events.createEventSchema),
   events.create,
 );
+// Image upload, kept above /:id so it is not treated as an event id.
+router.post(
+  "/image",
+  requireAuth,
+  requireRole("ADMIN"),
+  (req, res, next) =>
+    uploadImage(req, res, (err) => {
+      if (err) {
+        try {
+          handleUploadErrors(err);
+        } catch (translated) {
+          next(translated);
+          return;
+        }
+      }
+      next();
+    }),
+  events.uploadImage,
+);
+
 router.patch(
   "/:id",
   requireAuth,

@@ -1,6 +1,8 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 import * as eventsService from "../services/events";
+import { uploadEventImage } from "../lib/cloudinary";
+import { AppError } from "../middleware/error";
 
 /** Express 5 types params as string | string[]; routes here always give one. */
 const idOf = (req: Request) => String(req.params.id);
@@ -21,6 +23,7 @@ export const createEventSchema = z.object({
   location: optionalText(160),
   description: optionalText(4000),
   imageUrl: z.url("Please enter a valid URL").nullable().optional(),
+  imagePublicId: z.string().max(200).nullable().optional(),
   published: z.boolean().optional(),
 });
 
@@ -53,4 +56,16 @@ export async function update(req: Request, res: Response) {
 export async function remove(req: Request, res: Response) {
   await eventsService.remove(idOf(req));
   res.status(204).end();
+}
+
+/**
+ * Uploads an event photo and returns its URL, so the admin form can attach a
+ * picture while creating an event that does not exist yet.
+ */
+export async function uploadImage(req: Request, res: Response) {
+  if (!req.file) {
+    throw new AppError(400, "Please choose an image to upload", "NO_FILE");
+  }
+  const { url, publicId } = await uploadEventImage(req.file.buffer);
+  res.status(201).json({ imageUrl: url, imagePublicId: publicId });
 }

@@ -61,6 +61,38 @@ export function uploadAvatar(
   });
 }
 
+/**
+ * Uploads an event photo. Kept wider than an avatar (16:9) since these are
+ * used as banners, and stored under its own folder.
+ */
+export function uploadEventImage(
+  buffer: Buffer,
+): Promise<{ url: string; publicId: string }> {
+  assertConfigured();
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "bsuc/events",
+        resource_type: "image",
+        transformation: [
+          { width: 1600, height: 900, crop: "fill", gravity: "auto" },
+          { quality: "auto", fetch_format: "auto" },
+        ],
+      },
+      (error, result) => {
+        if (error || !result) {
+          reject(new AppError(502, "Could not upload the image", "UPLOAD_FAILED"));
+          return;
+        }
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      },
+    );
+
+    stream.end(buffer);
+  });
+}
+
 /** Removes an image. Failures are ignored: a leftover file must not break the request. */
 export async function destroyImage(publicId: string) {
   if (!cloudinaryConfigured) return;
